@@ -6,7 +6,10 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import Workspace , Membership
 from .serializer import WorkspaceSerializer ,AddMemberSerializer
-from core.permissions import IsWorkforce
+from core.permissions import IsWorkforce,IsWorkforceAdmin
+from django.conf import settings
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 class WorkspaceViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated,IsWorkforce]
@@ -50,4 +53,32 @@ class WorkspaceViewSet(ModelViewSet):
         )
         return Response({
             'message':f'User added succesfully '
+        })
+    @action(detail=True, methods=['delete'], url_path='rem-member',
+            permission_classes=[IsAuthenticated, IsWorkforceAdmin])
+    def remove_member(self, request, pk=None):
+        workspace = self.get_object()
+
+        github_id = request.data.get('github_id')
+
+        if not github_id:
+            return Response({'error': 'github_id is required'}, status=400)
+
+        user_to_remove = User.objects.filter(github_id=github_id).first()
+
+        if not user_to_remove:
+            return Response({'error': 'User not found'}, status=400)
+
+        membership = Membership.objects.filter(
+            user=user_to_remove,
+            workspace=workspace
+        ).first()
+
+        if not membership:
+            return Response({'error': 'User not in this workspace'}, status=400)
+
+        membership.delete()
+
+        return Response({
+            'message': f'{user_to_remove} removed from workspace {workspace.name}'
         })
