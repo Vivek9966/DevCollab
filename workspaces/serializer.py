@@ -45,3 +45,10 @@ class AddMemberSerializer(serializers.Serializer):
         data['user']=user
 
         return data
+    
+class WorkspaceMemberSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email')
+
+    class Meta:
+        model = Membership
+        fields = ['email', 'role', 'joined_at']

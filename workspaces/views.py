@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import Workspace , Membership
-from .serializer import WorkspaceSerializer ,AddMemberSerializer
+from .serializer import WorkspaceSerializer ,AddMemberSerializer , WorkspaceMemberSerializer
 from core.permissions import IsWorkforce,IsWorkforceAdmin
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -82,3 +82,13 @@ class WorkspaceViewSet(ModelViewSet):
         return Response({
             'message': f'{user_to_remove} removed from workspace {workspace.name}'
         })
+    @action(detail=True, methods=['get'], url_path='members',
+            permission_classes=[IsAuthenticated,IsWorkforce])
+    def list_members(self,request,pk =None):
+        workspace = self.get_object()
+
+        membership = workspace.membership.select_related('user').all()
+
+        serializer = WorkspaceMemberSerializer(membership,many = True)
+
+        return Response(serializer.data)
