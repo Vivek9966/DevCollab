@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from  django.db.models  import Count
 
 
 User = settings.AUTH_USER_MODEL
@@ -11,6 +12,7 @@ class Workspace(models.Model):
     members = models.ManyToManyField(
         User,through='Membership',related_name='workspaces'
     )
+   
     class Meta:
         constraints = [
         models.UniqueConstraint(
@@ -36,5 +38,6 @@ class Membership(models.Model):
 
     class Meta:
         unique_together = ('user','workspace')
+        indexes = [models.Index(fields=['user','workspace'])]
     def __str__(self):
         return f"{self.user}:{self.workspace} - {self.role}"

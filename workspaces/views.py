@@ -9,16 +9,27 @@ from .serializer import WorkspaceSerializer ,AddMemberSerializer , WorkspaceMemb
 from core.permissions import IsWorkforce,IsWorkforceAdmin
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from  tasks.models import Task
+from core.serializer import ActivityLogSerializer
+from core.models import ActivityLogger
+from django.contrib.contenttypes.models import ContentType
+from core.pagination import WorkspacePagePagination
+from django.db.models import Count
+from django.db import connection
 User = get_user_model()
 
 class WorkspaceViewSet(ModelViewSet):
+    pagination_class = WorkspacePagePagination
     permission_classes = [IsAuthenticated,IsWorkforce]
     serializer_class =WorkspaceSerializer
     
     def get_queryset(self):
-        
         return Workspace.objects.filter(
-            members = self.request.user
+            members=self.request.user
+        ).select_related('owner'
+        ).annotate(
+            project_count = Count('projects',distinct=True),
+            member_count =Count('memberships',distinct=True)
         )
     
     @action(detail=True,methods=['post'],url_path='add-member')
@@ -87,8 +98,41 @@ class WorkspaceViewSet(ModelViewSet):
     def list_members(self,request,pk =None):
         workspace = self.get_object()
 
-        membership = workspace.membership.select_related('user').all()
+        membership = workspace.memberships.select_related('user').all()
 
         serializer = WorkspaceMemberSerializer(membership,many = True)
 
         return Response(serializer.data)
+    @action(detail=True,methods =['get'],url_path='activity')
+    def workspace_activity(self,request,pk=None):
+        workspace = self.get_object()
+        tasks = Task.objects.filter(project__workspace=workspace).values_list('id', flat=True)
+        content_type  =ContentType.objects.get_for_model(Task)
+
+        logs = ActivityLogger.objects.filter(
+            content_type=content_type,
+            object_id__in=tasks
+        ).select_related('user').order_by('-created_at')
+        serializer  = ActivityLogSerializer(logs,many=True)
+
+        return Response(serializer.data)
+    
+    @action(detail=True,methods=['get'],url_path='report')
+    def report(self,request,pk=None):
+        with connection.cursor() as cursor:
+            cursor.execute(
+
+                """
+                SELECT p.id, p.name, COUNT(t.id) AS task_count
+            FROM projects_project p
+            LEFT JOIN tasks_task t ON t.project_id = p.id
+            WHERE p.workspace_id = %s
+            GROUP BY p.id;
+            """
+            ,[pk])
+            columns = [col[0] for col in cursor.description]
+            results=[
+                dict(zip(columns,row))
+                for row in cursor.fetchall()
+            ]
+        return Response(results)

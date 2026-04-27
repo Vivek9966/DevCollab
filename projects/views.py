@@ -9,13 +9,20 @@ from rest_framework.response import Response
 from .models import Projects
 from .serializers import ProjectSerializer
 from  workspaces.models import Membership
+from django.db.models import Count,Q
+from rest_framework.exceptions import PermissionDenied
 class ProjectViewset(ModelViewSet):
     permission_classes = [IsAuthenticated,IsWorkforce]
     serializer_class = ProjectSerializer
+      
     def get_queryset(self):
         return Projects.objects.filter(
-            workspace__members = self.request.user
+        workspace__members=self.request.user
+    ).select_related('workspace', 'created_by').annotate(
+        task_count = Count('tasks',distinct=True),completed_tasks =Count(
+            'tasks',filter=Q(tasks__status='done'),distinct=True
         )
+    )
     def perform_create(self, serializer):
         workspace_id = self.kwargs.get('workspace_pk')
         user =self.request.user
@@ -24,7 +31,7 @@ class ProjectViewset(ModelViewSet):
         ).first()
 
         if not membership or membership.role =='viewer':
-            raise PermissionError('Viewers can\'t create Projects')
+            raise PermissionDenied('Viewers can\'t create Projects')
 
         serializer.save(
             workspace_id=workspace_id,

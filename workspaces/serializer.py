@@ -4,9 +4,13 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 class WorkspaceSerializer(serializers.ModelSerializer):
+
+    project_count = serializers.IntegerField(read_only=True)
+    member_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Workspace
-        fields = ['id','name']
+        fields = ['id','name','project_count','member_count']
     def validate(self,data):
         user  = self.context['request'].user
         name = data.get('name')

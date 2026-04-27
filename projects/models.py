@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 from workspaces.models import Workspace
-
+from django.db.models import  Q,Count
 User = settings.AUTH_USER_MODEL
 class Projects(models.Model):
     name = models.CharField(max_length=255, null=False, blank=False)
@@ -15,6 +15,7 @@ class Projects(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True
     )
+  
     class Meta:
         constraints = [
             models.UniqueConstraint(

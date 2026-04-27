@@ -6,7 +6,7 @@ from projects.views import ProjectViewset
 from workspaces.views import WorkspaceViewSet
 from tasks.views import TaskViewset
 from rest_framework_nested import routers
-
+import debug_toolbar
 
 router = routers.DefaultRouter()
 router.register(r'workspaces',WorkspaceViewSet ,basename='workspace')
@@ -21,7 +21,9 @@ urlpatterns += [
      path('admin/', admin.site.urls),
 
      path ('accounts/' , include('allauth.urls')),
-    path('api/auth/', include('accounts.urls'))]
+    path('api/auth/', include('accounts.urls'))
+    ,path('__debug__/',include(debug_toolbar.urls))
+    ]
 #     path('',include('projects.urls')),
 
 #     ,
