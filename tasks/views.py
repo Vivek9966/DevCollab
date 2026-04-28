@@ -16,7 +16,9 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from core.pagination import TaskCursorPagination
 from django.contrib.auth import get_user_model
+from tasks.tasks import send_task_assignment_email
 #user = get_user_model
+
 class TaskViewset(ModelViewSet):
     pagination_class =TaskCursorPagination
     permission_classes=[IsWorkforce,IsAuthenticated]
@@ -36,10 +38,15 @@ class TaskViewset(ModelViewSet):
         if not membership or membership.role == 'viewer':
             raise PermissionDenied('Viewers can\'t create tasks')
 
-        serializer.save(
+        task = serializer.save(
             project_id=project_id,
             created_by = self.request.user
         )
+        if task.assigned_to:
+            send_task_assignment_email.delay(
+                task.assigned_to.email,
+                task.title
+            )
         
     @action(detail=True,methods=['post'])
     def change_status(self,request,pk = None):
