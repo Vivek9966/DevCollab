@@ -16,6 +16,7 @@ from django.contrib.contenttypes.models import ContentType
 from core.pagination import WorkspacePagePagination
 from django.db.models import Count
 from django.db import connection
+from django.core.cache import cache
 User = get_user_model()
 
 class WorkspaceViewSet(ModelViewSet):
@@ -23,6 +24,19 @@ class WorkspaceViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated,IsWorkforce]
     serializer_class =WorkspaceSerializer
     
+    def list(self, request, *args, **kwargs):
+        user = request.user
+        cache_key = f'workspace_list_user_{user.id}'
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+        queryset=self.get_queryset()
+        serializer = self.get_serializer(queryset,many=True)
+        response = self.get_paginated_response(serializer.data)
+        cache.set(cache_key,response.data,timeout=60)
+
+        return Response(response) 
+
     def get_queryset(self):
         return Workspace.objects.filter(
             members=self.request.user

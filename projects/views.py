@@ -11,10 +11,24 @@ from .serializers import ProjectSerializer
 from  workspaces.models import Membership
 from django.db.models import Count,Q
 from rest_framework.exceptions import PermissionDenied
+from django.core.cache import cache
 class ProjectViewset(ModelViewSet):
     permission_classes = [IsAuthenticated,IsWorkforce]
     serializer_class = ProjectSerializer
-      
+    def list(self, request, *args, **kwargs):
+        user= request.user
+        workspace_id= self.kwargs.get('workspace_pk')
+        cache_key = f"project_list_user_{user.id}_workspace_{workspace_id}"
+
+        cached= cache.get(cache_key)
+        if cached:
+            return Response(cached)
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset,many=True)
+        response = self.get_paginated_response(serializer.data)
+        cache.set(cache_key,response.data,timeout=60)
+
+        return Response(response) 
     def get_queryset(self):
         return Projects.objects.filter(
         workspace__members=self.request.user
