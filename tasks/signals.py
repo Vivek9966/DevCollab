@@ -4,6 +4,8 @@ from django.contrib.contenttypes.models import ContentType
 from .models import Task
 from core.models import ActivityLogger
 from core.middleware import get_current_user
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 @receiver(pre_save,sender=Task)
 def track_old_values(sender,instance,**kwargs):
@@ -69,5 +71,21 @@ def log_task_delete(sender,instance,**kwargs):
         object_id = instance.id
         , metadata={
             'title':instance.title
+        }
+    )
+
+@receiver(post_save,sender=Task)
+def broadcast_task_update(sender, instance,**kwargs):
+    chl_lyrs = get_channel_layer()
+
+    async_to_sync(chl_lyrs.group_send)(
+        f"workspace_{instance.project.workspace_id}",
+        {
+            "type": "task_update",
+            "data":{
+                "id":instance.id,
+                "status":instance.status,
+                "title":instance.title
+            }
         }
     )
